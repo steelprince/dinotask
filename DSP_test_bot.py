@@ -35,7 +35,7 @@ def get_file_path(token, file_id):
 
     return 'https://api.telegram.org/file/bot{}/{}'.format(token, file_path)
 
-def get_audio_fie(msg_list, content_type, user_id):
+def process_audio_fie(msg_list, content_type, user_id):
 
     audio_file_index = 0
 
@@ -52,18 +52,20 @@ def get_audio_fie(msg_list, content_type, user_id):
         temp = open(last_saved_audio_index).readline()
         audio_file_index = int(temp) + 1
 
-
+    counter = 0
     for msg in msg_list:
         file_id = msg['message'][content_type]['file_id']
-
+        counter+=1
 
         download_url = get_file_path(bot_token, file_id)
         file = get(download_url)
 
         filename = str(user_id) +'/audio_message_' + str(audio_file_index) + '_temp.wav'
-
-        with open(filename, 'wb') as f:
-            f.write(file.content)
+        try:
+            with open(filename, 'wb') as f:
+                f.write(file.content)
+        except FileNotFoundError:
+            bot.sendMessage(user_id, 'Something went wrong, please try again.')
 
 
         # saving last audio file index
@@ -71,17 +73,6 @@ def get_audio_fie(msg_list, content_type, user_id):
         file_id = str(audio_file_index)
         temp.write(file_id)
         temp.close()
-
-        return filename
-
-
-def handle(msg):
-    content_type, chat_type, user_id = telepot.glance(msg)
-    usermsg = bot.getUpdates(allowed_updates='message')
-
-    if content_type == 'voice':
-
-        filename = get_audio_fie(usermsg, content_type ,user_id)
 
         # Changing sampling rate of the audio to 16KHz
         new_filename = ''.join(filename.split("_temp"))
@@ -91,8 +82,16 @@ def handle(msg):
             raise Exception("Something went wrong")
         else:
             os.remove(filename)
-            bot.sendMessage(user_id, 'Your audio was succesfully saved and converted to .wav file with sampling rate 16kHz.')
+            bot.sendMessage(user_id, 'Your ' + str(counter) + ' audio was succesfully saved and converted to .wav file with sampling rate 16kHz.')
 
+
+
+def handle(msg):
+    content_type, chat_type, user_id = telepot.glance(msg)
+    usermsg = bot.getUpdates(allowed_updates='message')
+
+    if content_type == 'audio' or content_type == 'voice':
+        process_audio_fie(usermsg, content_type ,user_id)
     elif content_type == 'photo':
 
         #Creating temporary file for opencv
@@ -132,7 +131,6 @@ def handle(msg):
 
             #Saving last file index
             temp = open(last_saved_photo_index,'w')
-            file_id = str(photo_file_index)
             temp.write(str(photo_file_index))
             temp.close()
 
@@ -143,7 +141,7 @@ def handle(msg):
         bot.sendMessage(user_id, 'Sorry, we only accept audio and photo.')
 
 
-bot_token = "YOUR TOKEN"
+bot_token = "Your Token"
 bot = telepot.Bot(bot_token)
 bot.message_loop(handle)
 
